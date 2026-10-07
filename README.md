@@ -1,43 +1,144 @@
-# Quiz App Online 
-(but only on the server)
+# Spring Boot Boilerplate
 
-Here is my repo project. Feel free to use it if you like it.
+(server only)
 
-## Tech 
+Auth and user management API. Register, login, and admin user CRUD.
 
-- [Spring-Boot] - a framework for developing Java applications
-- [MySQL] - Database.
-- [Java-JWT] - A Java implementation of [JSON Web Token (JWT) - RFC 7519]
-- [Guava] - Guava is a set of core Java libraries from Google that includes new collection types (such as multimap and multiset), immutable collections, a graph library, and utilities for concurrency, I/O, hashing, caching, primitives, strings, and more! It is widely used on most Java projects within Google, and widely used by many other companies as well.
-- [MapStruct] - MapStruct is a code generator that greatly simplifies the implementation of mappings between Java bean types based on a convention over configuration approach.
-- [Apache Commons CSV] - Commons CSV reads and writes files in variations of the Comma Separated Value (CSV) format.
-- [Apache POI] - The Apache POI project is the master project for developing pure Java ports of file formats based on Microsoft's OLE 2 Compound Document Format.
+## Tech
 
-## Checkout SDK from Github
+- [Spring Boot] 4.1.1
+- [Java] 21
+- [PostgreSQL]
+- [Java-JWT]
+- [MapStruct]
+- [springdoc] OpenAPI
+
+## Checkout
+
 ```sh
-git clone https://github.com/hqyuh/quiz-online-server
+git clone https://github.com/hqyuh/spring-boot-boilerplate
 ```
 
-## Environment
-- [Java 11]
-- [Spring Boot 2.6.4]
+## Build
 
-## License 
+Needs JDK 21.
+
+```sh
+mvn clean package -DskipTests
+```
+
+The jar is `target/boilerplate-0.0.1-SNAPSHOT.jar`. Main class is `com.hqh.boilerplate.BoilerplateApplication`.
+
+## Run
+
+PostgreSQL must be running, and the database `quiz` must already exist. Each profile file has its own connection settings (`jdbc:postgresql://localhost:5432/quiz`, user `postgres`).
+
+| Profile | File | Port |
+| ------- | ---- | ---- |
+| `dev` | `src/main/resources/application-dev.yml` | 8081 |
+| `prod` | `src/main/resources/application-prod.yml` | 9090 |
+
+Both files are packaged into the jar. Choose one with the active profile. There is no `application.yml`, so a start without a profile does not load the datasource or the port.
+
+Dev, from source:
+
+```sh
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+On PowerShell, quote that property:
+
+```powershell
+mvn spring-boot:run "-Dspring-boot.run.profiles=dev"
+```
+
+After the build above, prod from the jar:
+
+```sh
+java -jar target/boilerplate-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
+```
+
+The same jar with dev:
+
+```sh
+java -jar target/boilerplate-0.0.1-SNAPSHOT.jar --spring.profiles.active=dev
+```
+
+The startup log names the profile, for example `The following 1 profile is active: "dev"`. `No active profile set` means neither file was loaded.
+
+Dev base URL: `http://localhost:8081/api/v1`
+
+Dev Swagger: `http://localhost:8081/api/v1/swagger-ui.html`
+
+Prod uses port `9090` with the same paths.
+
+Tests use H2 (`src/test/resources/application-test.yml`):
+
+```sh
+mvn test
+```
+
+
+
+## Auth
+
+Public:
+
+
+| Method | Path             |
+| ------ | ---------------- |
+| POST   | `/auth/register` |
+| POST   | `/auth/login`    |
+
+
+Register body:
+
+```json
+{
+  "firstName": "Admin",
+  "lastName": "User",
+  "username": "adminuser",
+  "email": "admin@test.local",
+  "password": "quiz1234",
+  "roles": "ROLE_ADMIN"
+}
+```
+
+`roles` is `ROLE_USER`, `ROLE_ADMIN`, or `ROLE_TEACHER`. Password needs at least 8 characters, one lowercase letter, and one digit. Username starts with a letter. First and last name start with a capital letter.
+
+Login body is `email` and `password`. The response has `tokenType`, `accessToken`, and `expireAt`. Send later calls as `Authorization: Bearer <accessToken>`.
+
+## User CRUD
+
+All of these need `ROLE_ADMIN`.
+
+
+| Method | Path                | Notes                               |
+| ------ | ------------------- | ----------------------------------- |
+| POST   | `/user/add`         | Returns the generated password once |
+| GET    | `/user/list`        |                                     |
+| GET    | `/user/find/{id}`   | 400 if the id does not exist        |
+| POST   | `/user/update`      | Body includes `currentUsername`     |
+| DELETE | `/user/delete/{id}` | 400 if the id does not exist        |
+
+
+Add and update body:
+
+```json
+{
+  "currentUsername": "adminuser",
+  "firstName": "Admin",
+  "lastName": "User",
+  "username": "adminuser",
+  "email": "admin@test.local",
+  "roles": "ROLE_ADMIN",
+  "isActive": true,
+  "isNonLocked": true
+}
+```
+
+`currentUsername` is required only on update. A duplicate username or email returns 400 `USERNAME OR EMAIL ALREADY EXISTS`. A missing user returns 400 `NO USER FOUND BY ID`. `ROLE_USER` calling these routes gets 403.
+
+## License
 
 MIT
-
-**Please tell me if you find the code stupid, so I can improve my code** :hammer: 
-
-**Feel free, my code is stupid!** :see_no_evil:
-
-
-  [Spring-Boot]: <https://spring.io/>
-  [MySQL]: <https://dev.mysql.com/doc/>
-  [Java-JWT]: <https://github.com/auth0/java-jwt> 
-  [Guava]: <https://github.com/google/guava>
-  [MapStruct]: <https://mapstruct.org/>
-  [Apache Commons CSV]: <https://commons.apache.org/proper/commons-csv/index.html>
-  [Apache POI]: <https://poi.apache.org/components/>
-  [JSON Web Token (JWT) - RFC 7519]: <https://datatracker.ietf.org/doc/html/rfc7519>
-  [Java 11]: <https://www.oracle.com/java/technologies/javase/jdk11-archive-downloads.html>
-  [Spring Boot 2.6.4]: <https://spring.io/blog/2022/02/24/spring-boot-2-6-4-available-now>
