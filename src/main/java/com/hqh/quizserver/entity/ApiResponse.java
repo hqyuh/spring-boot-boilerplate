@@ -18,9 +18,9 @@ public class ApiResponse {
     private HttpStatus httpStatus;
     private String type;
     private String reason;
-    private String message;
+    private Object message;
 
-    public ApiResponse(int httpStatusCode, HttpStatus httpStatus, String type, String reason, String message) {
+    public ApiResponse(int httpStatusCode, HttpStatus httpStatus, String type, String reason, Object message) {
         this.timeStamp = new Date();
         this.httpStatusCode = httpStatusCode;
         this.httpStatus = httpStatus;

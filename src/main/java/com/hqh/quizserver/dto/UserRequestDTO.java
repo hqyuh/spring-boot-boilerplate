@@ -1,7 +1,9 @@
 package com.hqh.quizserver.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -11,14 +13,17 @@ import lombok.Setter;
 
 import static com.hqh.quizserver.constant.PatternConstant.EMAIL_PATTERN;
 import static com.hqh.quizserver.constant.PatternConstant.NAME_PATTERN;
-import static com.hqh.quizserver.constant.PatternConstant.PASSWORD_PATTERN;
 import static com.hqh.quizserver.constant.PatternConstant.USERNAME_PATTERN;
 
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Setter
-public class UserRegisterRequestDTO {
+public class UserRequestDTO {
+    @NotBlank(groups = OnUpdate.class)
+    @Pattern(regexp = USERNAME_PATTERN)
+    private String currentUsername;
+
     @NotBlank
     @Size(max = 20)
     @Pattern(regexp = NAME_PATTERN)
@@ -44,7 +49,11 @@ public class UserRegisterRequestDTO {
             flags = Pattern.Flag.CASE_INSENSITIVE)
     private String roles;
 
-    @NotBlank
-    @Pattern(regexp = PASSWORD_PATTERN)
-    private String password;
+    @NotNull
+    @JsonProperty("isActive")
+    private Boolean active;
+
+    @NotNull
+    @JsonProperty("isNonLocked")
+    private Boolean nonLocked;
 }

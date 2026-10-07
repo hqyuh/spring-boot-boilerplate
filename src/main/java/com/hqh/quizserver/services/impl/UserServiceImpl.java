@@ -1,16 +1,15 @@
 package com.hqh.quizserver.services.impl;
 
 import com.hqh.quizserver.dto.UserDTO;
+import com.hqh.quizserver.dto.UserRegisterRequestDTO;
+import com.hqh.quizserver.dto.UserRequestDTO;
 import com.hqh.quizserver.entity.User;
 import com.hqh.quizserver.entity.UserPrincipal;
-import com.hqh.quizserver.entity.UserStatistics;
 import com.hqh.quizserver.enumeration.Role;
-import com.hqh.quizserver.exceptions.domain.user.*;
-import com.hqh.quizserver.helper.user.CSVHelper;
+import com.hqh.quizserver.exceptions.domain.user.UserNotFoundException;
+import com.hqh.quizserver.exceptions.domain.user.UsernameOrEmailExistException;
 import com.hqh.quizserver.mapper.UserMapper;
 import com.hqh.quizserver.repository.UserRepository;
-import com.hqh.quizserver.services.UserHelperService;
-import com.hqh.quizserver.services.EmailService2;
 import com.hqh.quizserver.services.LoginAttemptService;
 import com.hqh.quizserver.services.UserService;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -18,58 +17,40 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import javax.mail.MessagingException;
-import javax.transaction.Transactional;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Arrays;
+import jakarta.transaction.Transactional;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.hqh.quizserver.constant.EmailConstant.*;
-import static com.hqh.quizserver.constant.FileConstant.*;
-import static com.hqh.quizserver.constant.PasswordConstant.CURRENT_PASSWORD_IS_INCORRECT;
 import static com.hqh.quizserver.constant.UserImplConstant.*;
-import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.apache.commons.lang3.StringUtils.EMPTY;
-import static org.springframework.http.MediaType.*;
 
 @Service
 @Transactional
-@Qualifier("userDetailsService")
-public class UserServiceImpl implements UserDetailsService, UserService, UserHelperService {
+public class UserServiceImpl implements UserDetailsService, UserService {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
     private final LoginAttemptService loginAttemptService;
-    private final EmailService2 emailService2;
     private final UserMapper userMapper;
 
     @Autowired
     public UserServiceImpl(UserRepository userRepository,
                            BCryptPasswordEncoder bCryptPasswordEncoder,
                            LoginAttemptService loginAttemptService,
-                           EmailService2 emailService2,
                            UserMapper userMapper) {
         this.userRepository = userRepository;
         this.bCryptPasswordEncoder = bCryptPasswordEncoder;
         this.loginAttemptService = loginAttemptService;
-        this.emailService2 = emailService2;
         this.userMapper = userMapper;
     }
 
@@ -114,29 +95,18 @@ public class UserServiceImpl implements UserDetailsService, UserService, UserHel
 
 
 
-    /**
-     * <h2>It takes in a bunch of parameters, validates them, and then saves the user to the database</h2>
-     *
-     * @param firstName The first name of the user.
-     * @param lastName "Doe"
-     * @param username The username of the user.
-     * @param email The email address of the user.
-     * @param role The role of the user.
-     * @param password The password that the user will use to login.
-     * @return User
-     */
     @Override
-    public User register(String firstName, String lastName, String username, String email, String role, String password)
-            throws UserNotFoundException, EmailExistException, UsernameExistException {
+    public UserDTO register(UserRegisterRequestDTO request)
+            throws UserNotFoundException, UsernameOrEmailExistException {
         User user = new User();
-        setUserInformation(user, firstName, lastName, username, email, role);
-        String encodedPassword = encodePassword(password);
-        user.setPassword(encodedPassword);
+        validateNewUsernameAndEmail(EMPTY, request.getUsername(), request.getEmail());
+        setUserInformation(user, request.getFirstName(), request.getLastName(),
+                request.getUsername(), request.getEmail(), request.getRoles());
+        user.setPassword(encodePassword(request.getPassword()));
         user.setCreatedBy("Self-registered users");
         user.setUpdatedBy("None");
         userRepository.save(user);
-
-        return user;
+        return userMapper.toUserResponseDto(user);
     }
 
     /**
@@ -151,10 +121,7 @@ public class UserServiceImpl implements UserDetailsService, UserService, UserHel
      * @param role The role of the user.
      */
     public void setUserInformation(User user, String firstName, String lastName, String username, String email, String role)
-            throws UserNotFoundException, EmailExistException, UsernameExistException {
-        log.info("Begin validating email and username :::");
-        validateNewUsernameAndEmail(EMPTY, username, email);
-        log.info("End validating email and username :::");
+            throws UserNotFoundException, UsernameOrEmailExistException {
         user.setFirstName(firstName);
         user.setLastName(lastName);
         user.setUsername(username);
@@ -176,7 +143,7 @@ public class UserServiceImpl implements UserDetailsService, UserService, UserHel
     private String getTemporaryProfileImageUrl(String username) {
         // http://localhost:8081
         return ServletUriComponentsBuilder.fromCurrentContextPath()
-                                          .path(DEFAULT_USER_IMAGE_PATH + username)
+                                          .path("/user/profile/" + username)
                                           .toUriString();
     }
 
@@ -192,7 +159,7 @@ public class UserServiceImpl implements UserDetailsService, UserService, UserHel
     private User validateNewUsernameAndEmail(String currentUsername,
                                              String newUsername,
                                              String newEmail)
-            throws UsernameExistException, EmailExistException, UserNotFoundException {
+            throws UsernameOrEmailExistException, UserNotFoundException {
 
         User userByNewUsername = findUserByUsername(newUsername);
         User userByNewEmail = findUserByEmail(newEmail);
@@ -208,22 +175,22 @@ public class UserServiceImpl implements UserDetailsService, UserService, UserHel
             // if the user's new name is not null and exists in the database
             if (userByNewUsername != null && !currentUser.getId().equals(userByNewUsername.getId())) {
                 log.error("Username already exists");
-                throw new UsernameExistException(USERNAME_ALREADY_EXISTS);
+                throw new UsernameOrEmailExistException(USERNAME_OR_EMAIL_ALREADY_EXISTS);
             }
             // if the user's email is not empty and exists in the database
             if (userByNewEmail != null && !currentUser.getId().equals(userByNewEmail.getId())) {
                 log.error("Email already exists");
-                throw new EmailExistException(EMAIL_ALREADY_EXISTS);
+                throw new UsernameOrEmailExistException(USERNAME_OR_EMAIL_ALREADY_EXISTS);
             }
             return currentUser;
         } else {
             if (userByNewUsername != null) {
                 log.error("Username already exists");
-                throw new UsernameExistException(USERNAME_ALREADY_EXISTS);
+                throw new UsernameOrEmailExistException(USERNAME_OR_EMAIL_ALREADY_EXISTS);
             }
             if (userByNewEmail != null) {
                 log.error("Email already exists");
-                throw new EmailExistException(EMAIL_ALREADY_EXISTS);
+                throw new UsernameOrEmailExistException(USERNAME_OR_EMAIL_ALREADY_EXISTS);
             }
             return null;
         }
@@ -234,7 +201,7 @@ public class UserServiceImpl implements UserDetailsService, UserService, UserHel
         return userRepository
                 .findAll()
                 .stream()
-                .map(userMapper::userMapToUserDTO)
+                .map(userMapper::toUserResponseDto)
                 .collect(Collectors.toList());
     }
 
@@ -257,197 +224,67 @@ public class UserServiceImpl implements UserDetailsService, UserService, UserHel
         return RandomStringUtils.randomAlphanumeric(8);
     }
 
-    @Override
-    public void resetPassword(String email) throws EmailNotFoundException, MessagingException {
-        User user = userRepository.findUserByEmail(email);
-
-        if(user == null) {
-            throw new EmailNotFoundException(NO_USER_FOUND_BY_USERNAME + email);
-        }
-        String password = generatePassword();
-        user.setPassword(encodePassword(password));
-        log.info("Reset password {}", password);
-        userRepository.save(user);
-        String name = user.getFirstName();
-        emailService2.sendNewPasswordEmail(name, password, email, EMAIL_SUBJECT_RESET);
-        log.info("An email with a new password was sent to: {}", email);
-    }
-
     private Role getRoleEnumName(String role) {
         return Role.valueOf(role.toUpperCase());
     }
 
 
-    /**
-     * It adds a new user to the database.
-     *
-     * @param firstName The first name of the user
-     * @param lastName last name of the user
-     * @param username The username of the user to be created.
-     * @param email the email address of the user
-     * @param role the role of the user
-     * @param isNonLocked true if the user is not locked, false otherwise.
-     * @param isActive true or false
-     * @param multipartFile The image file that the user uploads.
-     * @return User
-     */
     @Override
-    public User addNewUser(String firstName, String lastName, String username, String email, String role,
-                           boolean isNonLocked, boolean isActive, MultipartFile multipartFile)
-            throws UserNotFoundException, EmailExistException, UsernameExistException, IOException,
-            NotAnImageFileException {
-        // new user
+    public UserDTO addNewUser(UserRequestDTO request)
+            throws UserNotFoundException, UsernameOrEmailExistException {
         User user = new User();
-        setUserInformation(user, firstName, lastName, username, email, role);
+        validateNewUsernameAndEmail(EMPTY, request.getUsername(), request.getEmail());
+        setUserInformation(user, request.getFirstName(), request.getLastName(),
+                request.getUsername(), request.getEmail(), request.getRoles());
+        user.setActive(request.getActive());
+        user.setNotLocked(request.getNonLocked());
         String password = generatePassword();
-        String encodedPassword = encodePassword(password);
-        user.setPassword(encodedPassword);
+        user.setPassword(encodePassword(password));
         user.setCreatedBy(getCurrentUser().getUsername());
         user.setUpdatedBy(getCurrentUser().getUsername());
-        saveProfileImage(user, multipartFile);
-        /*
-        String name = user.getFirstName();
-        log.info("Password has been sent to email: {}", email);
-        emailService2.sendNewPasswordEmail(name, password, email, EMAIL_SUBJECT_NEW_USER);
-        */
         userRepository.save(user);
-
-        return user;
+        UserDTO response = userMapper.toUserResponseDto(user);
+        response.setPassword(password);
+        return response;
     }
 
-    private void saveProfileImage(User user, MultipartFile profileImage)
-            throws IOException, NotAnImageFileException {
-
-        if(!profileImage.isEmpty()) {
-
-            if(!Arrays.asList(IMAGE_JPEG_VALUE, IMAGE_GIF_VALUE, IMAGE_PNG_VALUE)
-                      .contains(profileImage.getContentType())) {
-                throw new NotAnImageFileException(profileImage.getOriginalFilename() + PLEASE_UPLOAD_AN_IMAGE);
-            }
-
-            Path userFolder = Paths.get(USER_FOLDER + user.getUsername()).toAbsolutePath().normalize();
-            if(!Files.exists(userFolder)) {
-                Files.createDirectories(userFolder);
-                log.info("Created directory for: {}", userFolder);
-            }
-
-            Files.deleteIfExists(Paths.get(userFolder + user.getUsername() + DOT + JPG_EXTENSION));
-
-            Files.copy(profileImage.getInputStream(), userFolder.resolve(user.getUsername() + DOT + JPG_EXTENSION), REPLACE_EXISTING);
-            user.setProfileImageUrl(setProfileImageUrl(user.getUsername()));
-            userRepository.save(user);
-            log.info("Saved file in file system by name: {}", profileImage.getOriginalFilename());
-        }
-
-    }
-
-    private String setProfileImageUrl(String username) {
-        return ServletUriComponentsBuilder
-                .fromCurrentContextPath()
-                .path(USER_IMAGE_PATH + username + FORWARD_SLASH + username + DOT + JPG_EXTENSION)
-                .toUriString();
-    }
-
-
-    /**
-     * It updates the user information.
-     *
-     * @param currentUsername The username of the user that is currently logged in.
-     * @param newFirstName The new first name of the user.
-     * @param newLastName The new last name of the user.
-     * @param newUsername The new username that the user wants to change to.
-     * @param newEmail The new email address of the user.
-     * @param role The role of the user.
-     * @param isNonLocked If the user is locked or not.
-     * @param isActive This is a boolean value that determines whether the user is active or not.
-     * @param profileImage The image file that the user uploads.
-     * @return The currentUser is being returned.
-     */
     @Override
-    public User updateUser(String currentUsername, String newFirstName, String newLastName, String newUsername,
-                           String newEmail, String role, boolean isNonLocked, boolean isActive, MultipartFile profileImage)
-            throws UserNotFoundException, EmailExistException, UsernameExistException, IOException, NotAnImageFileException {
-
-        User currentUser = validateNewUsernameAndEmail(currentUsername, newUsername, newEmail);
+    public UserDTO updateUser(UserRequestDTO request)
+            throws UserNotFoundException, UsernameOrEmailExistException {
+        User currentUser = validateNewUsernameAndEmail(
+                request.getCurrentUsername(), request.getUsername(), request.getEmail());
         if (currentUser != null) {
-            setUserInformation(currentUser, newFirstName, newLastName, newUsername, newEmail, role);
+            setUserInformation(currentUser, request.getFirstName(), request.getLastName(),
+                    request.getUsername(), request.getEmail(), request.getRoles());
+            currentUser.setActive(request.getActive());
+            currentUser.setNotLocked(request.getNonLocked());
             currentUser.setCreatedBy(getCurrentUser().getUsername());
             currentUser.setUpdatedBy(getCurrentUser().getUsername());
             userRepository.save(currentUser);
-            saveProfileImage(currentUser, profileImage);
-            log.info("Update user successfully");
         }
-        return currentUser;
+        return userMapper.toUserResponseDto(currentUser);
     }
 
     @Override
-    public void deleteUser(Long id) {
+    public void deleteUser(Long id) throws UserNotFoundException {
+        if (!userRepository.existsById(id)) {
+            throw new UserNotFoundException(NO_USER_FOUND_BY_ID + id);
+        }
         userRepository.deleteById(id);
     }
 
     @Override
-    public User updateProfileImage(String username, MultipartFile profileImage)
-            throws UserNotFoundException, EmailExistException, UsernameExistException, IOException, NotAnImageFileException {
-        User user = validateNewUsernameAndEmail(username, null, null);
-        saveProfileImage(user, profileImage);
-        return user;
-    }
-
-    @Override
-    public User findUserById(Long id) {
-        return userRepository.findUserById(id);
-    }
-
-
-    /**
-     * It takes a user and an old password, and returns true if the old password matches the user's password
-     *
-     * @param user The user object that you want to check the password for.
-     * @param oldPassword The password that the user entered in the form
-     * @return A boolean value.
-     */
-    public boolean checkIfValidOldPassword(User user, String oldPassword) {
-        return bCryptPasswordEncoder.matches(oldPassword, user.getPassword());
-    }
-
-    /**
-     * @param email The email address of the user who wants to change their password.
-     * @param oldPassword The password that the user entered in the form.
-     * @param newPassword The new password that the user wants to change to.
-     */
-    public void changePassword(String email, String oldPassword, String newPassword) throws PasswordException {
-        User user = userRepository.findUserByEmail(email);
-
-        if(!checkIfValidOldPassword(user, oldPassword)) {
-            log.error("Current password is incorrect.");
-            throw new PasswordException(CURRENT_PASSWORD_IS_INCORRECT);
+    public UserDTO findUserById(Long id) throws UserNotFoundException {
+        User user = userRepository.findUserById(id);
+        if (user == null) {
+            throw new UserNotFoundException(NO_USER_FOUND_BY_ID + id);
         }
-        user.setPassword(encodePassword(newPassword));
-        log.info("Change password successfully.");
-    }
-
-    @Override
-    public void accountLock(Long id, boolean isNotLocked) {
-        userRepository.accountLock(id, isNotLocked);
-    }
-
-    @Override
-    public ByteArrayInputStream loadCSV() {
-        List<User> users = userRepository.findAll();
-
-        return CSVHelper.userToCsv(users);
+        return userMapper.toUserResponseDto(user);
     }
 
     @Override
     public User getCurrentUser() {
         String userPrincipal = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findUserByUsername(userPrincipal);
-    }
-
-    @Override
-    public UserStatistics userStatistics() {
-        UserStatistics userStatistics = new UserStatistics();
-        userStatistics.setNumberOfUsersInUse(userRepository.userStatistics());
-        return userStatistics;
     }
 }

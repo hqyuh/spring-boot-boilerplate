@@ -47,9 +47,6 @@ spring:
         username: hoquang.huyy@gmail.com
     main:
         allow-circular-references: true
-    mvc:
-        pathmatch:
-            matching-strategy: ant_path_matcher
     servlet:
         multipart:
             max-file-size: 2MB

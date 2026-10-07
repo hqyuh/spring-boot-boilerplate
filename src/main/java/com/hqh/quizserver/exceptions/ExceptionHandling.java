@@ -2,13 +2,10 @@ package com.hqh.quizserver.exceptions;
 
 import com.auth0.jwt.exceptions.TokenExpiredException;
 import com.hqh.quizserver.entity.ApiResponse;
-import com.hqh.quizserver.exceptions.domain.quizz.*;
-import com.hqh.quizserver.exceptions.domain.topic.TopicExistException;
-import com.hqh.quizserver.exceptions.domain.topic.TopicNotFoundException;
-import com.hqh.quizserver.exceptions.domain.user.*;
+import com.hqh.quizserver.exceptions.domain.user.UserNotFoundException;
+import com.hqh.quizserver.exceptions.domain.user.UsernameOrEmailExistException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.web.servlet.error.ErrorController;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,18 +13,18 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
-import org.springframework.validation.FieldError;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import javax.persistence.NoResultException;
+import jakarta.persistence.NoResultException;
+import tools.jackson.databind.DatabindException;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.Objects;
 
 import static com.hqh.quizserver.constant.DomainConstant.*;
@@ -36,7 +33,7 @@ import static org.springframework.http.HttpStatus.*;
 
 // exception api
 @RestControllerAdvice
-public class ExceptionHandling implements ErrorController {
+public class ExceptionHandling {
 
     private final Logger LOGGER = LoggerFactory.getLogger(getClass());
 
@@ -79,23 +76,13 @@ public class ExceptionHandling implements ErrorController {
         return createHttpResponse(UNAUTHORIZED, MESSAGE_ERROR, exception.getMessage());
     }
 
-    @ExceptionHandler(EmailExistException.class)
-    public ResponseEntity<ApiResponse> emailExistException(EmailExistException exception) {
-        return createHttpResponse(BAD_REQUEST, MESSAGE_ERROR, exception.getMessage());
-    }
-
-    @ExceptionHandler(UsernameExistException.class)
-    public ResponseEntity<ApiResponse> usernameExistException(UsernameExistException exception) {
-        return createHttpResponse(BAD_REQUEST, MESSAGE_ERROR, exception.getMessage());
-    }
-
-    @ExceptionHandler(EmailNotFoundException.class)
-    public ResponseEntity<ApiResponse> emailNotFoundException(EmailNotFoundException exception) {
+    @ExceptionHandler(UsernameOrEmailExistException.class)
+    public ResponseEntity<ApiResponse> usernameOrEmailExistException(UsernameOrEmailExistException exception) {
         return createHttpResponse(BAD_REQUEST, MESSAGE_ERROR, exception.getMessage());
     }
 
     @ExceptionHandler(UserNotFoundException.class)
-    public ResponseEntity<ApiResponse> userNotFoundException(EmailNotFoundException exception) {
+    public ResponseEntity<ApiResponse> userNotFoundException(UserNotFoundException exception) {
         return createHttpResponse(BAD_REQUEST, MESSAGE_ERROR, exception.getMessage());
     }
 
@@ -109,6 +96,11 @@ public class ExceptionHandling implements ErrorController {
                                             .iterator()
                                             .next();
         return createHttpResponse(METHOD_NOT_ALLOWED, MESSAGE_ERROR, String.format(METHOD_IS_NOT_ALLOWED, supportedMethod));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse> noResourceFoundException(NoResourceFoundException exception) {
+        return createHttpResponse(NOT_FOUND, MESSAGE_ERROR, NO_MAPPING_FOR_URL);
     }
 
     @ExceptionHandler(Exception.class)
@@ -134,51 +126,38 @@ public class ExceptionHandling implements ErrorController {
 //        return createHttpResponse(BAD_REQUEST, "This page was not found");
 //    }
 
-    @RequestMapping(ERROR_PATH)
-    public ResponseEntity<ApiResponse> notFound404(){
-        return createHttpResponse(NOT_FOUND, MESSAGE_ERROR, NO_MAPPING_FOR_URL);
-    }
-
-    @ExceptionHandler(PasswordException.class)
-    public ResponseEntity<ApiResponse> passwordException(PasswordException exception) {
-        return createHttpResponse(BAD_REQUEST, MESSAGE_ERROR, exception.getMessage());
-    }
-
-    @ExceptionHandler(TestQuizzNotFoundException.class)
-    public ResponseEntity<ApiResponse> quizzNotFoundException(TestQuizzNotFoundException exception) {
-        return createHttpResponse(BAD_REQUEST, MESSAGE_ERROR, exception.getMessage());
-    }
-
-    @ExceptionHandler(TestQuizzExistException.class)
-    public ResponseEntity<ApiResponse> quizzExistException(TestQuizzExistException exception) {
-        return createHttpResponse(BAD_REQUEST, MESSAGE_ERROR, exception.getMessage());
-    }
-
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public Map<String, String> handleValidationExceptions(MethodArgumentNotValidException exception) {
-        Map<String, String> errors = new HashMap<>();
-        exception.getBindingResult().getAllErrors().forEach((error) -> {
-            String fieldName = ((FieldError) error).getField();
-            String errorMessage = error.getDefaultMessage();
-            errors.put(fieldName, errorMessage);
-        });
-        return errors;
+    public ResponseEntity<ApiResponse> handleValidationExceptions(MethodArgumentNotValidException exception) {
+        List<FieldViolation> errors = exception.getBindingResult().getFieldErrors().stream()
+                .map(error -> new FieldViolation(error.getField(), error.getDefaultMessage()))
+                .toList();
+        return fieldErrors(errors);
     }
 
-    @ExceptionHandler(TopicNotFoundException.class)
-    public ResponseEntity<ApiResponse> topicNotFoundException(TopicNotFoundException exception) {
-        return createHttpResponse(BAD_REQUEST, MESSAGE_ERROR, exception.getMessage());
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse> unreadable(HttpMessageNotReadableException exception) {
+        Throwable cause = exception.getMostSpecificCause();
+        if (cause instanceof DatabindException mapping && !mapping.getPath().isEmpty()) {
+            String field = mapping.getPath().get(mapping.getPath().size() - 1).getPropertyName();
+            if (field != null) {
+                return fieldErrors(List.of(new FieldViolation(field, "Invalid value")));
+            }
+        }
+        return createHttpResponse(BAD_REQUEST, MESSAGE_ERROR, "INVALID REQUEST BODY");
     }
 
-    @ExceptionHandler(TopicExistException.class)
-    public ResponseEntity<ApiResponse> topicExistException(TopicExistException exception) {
-        return createHttpResponse(BAD_REQUEST, MESSAGE_ERROR, exception.getMessage());
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse> missingParameter(MissingServletRequestParameterException exception) {
+        return fieldErrors(List.of(new FieldViolation(exception.getParameterName(), "is mandatory")));
     }
 
-    @ExceptionHandler(TestQuizzCreateTimeException.class)
-    public ResponseEntity<ApiResponse> timeCreateQuizzException(TestQuizzCreateTimeException exception) {
-        return createHttpResponse(BAD_REQUEST, MESSAGE_ERROR, exception.getMessage());
+    private ResponseEntity<ApiResponse> fieldErrors(List<FieldViolation> errors) {
+        ApiResponse body = new ApiResponse(BAD_REQUEST.value(), BAD_REQUEST,
+                MESSAGE_ERROR.toUpperCase(), BAD_REQUEST.getReasonPhrase().toUpperCase(), errors);
+        return new ResponseEntity<>(body, BAD_REQUEST);
+    }
+
+    private record FieldViolation(String field, String message) {
     }
 
 }

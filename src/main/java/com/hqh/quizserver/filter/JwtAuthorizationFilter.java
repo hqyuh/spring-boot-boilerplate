@@ -1,21 +1,25 @@
 package com.hqh.quizserver.filter;
 
+import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.hqh.quizserver.entity.User;
+import com.hqh.quizserver.entity.UserPrincipal;
+import com.hqh.quizserver.repository.UserRepository;
 import com.hqh.quizserver.utility.JWTTokenProvider;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
-import static com.hqh.quizserver.constant.SecurityConstant.*;
+import static com.hqh.quizserver.constant.SecurityConstant.OPTIONS_HTTP_METHOD;
+import static com.hqh.quizserver.constant.SecurityConstant.TOKEN_PREFIX;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.http.HttpStatus.OK;
 
@@ -23,51 +27,57 @@ import static org.springframework.http.HttpStatus.OK;
 public class JwtAuthorizationFilter extends OncePerRequestFilter {
 
     private final JWTTokenProvider jwtTokenProvider;
+    private final UserRepository userRepository;
 
-    @Autowired
-    public JwtAuthorizationFilter(JWTTokenProvider jwtTokenProvider) {
+    public JwtAuthorizationFilter(JWTTokenProvider jwtTokenProvider,
+                                  UserRepository userRepository) {
         this.jwtTokenProvider = jwtTokenProvider;
+        this.userRepository = userRepository;
     }
 
-    /**
-     * SecurityContextHolder
-     * -> This class stores the current security context of the application,
-     * including details of the principal that is interacting with the application
-     *
-     * -> Spring Security will use an Authentication object to represent this information
-    * */
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        if(request.getMethod().equalsIgnoreCase(OPTIONS_HTTP_METHOD)) {
+        if (request.getMethod().equalsIgnoreCase(OPTIONS_HTTP_METHOD)) {
             response.setStatus(OK.value());
         } else {
-            String authorizationHeader = request.getHeader(AUTHORIZATION);
+            authenticate(request);
+        }
+        filterChain.doFilter(request, response);
+    }
 
-            // if not
-            if(authorizationHeader == null || !authorizationHeader.startsWith(TOKEN_PREFIX)) {
-                filterChain.doFilter(request, response);
+    private void authenticate(HttpServletRequest request) {
+        String authorizationHeader = request.getHeader(AUTHORIZATION);
+        if (authorizationHeader == null || !authorizationHeader.startsWith(TOKEN_PREFIX)) {
+            return;
+        }
+
+        try {
+            String token = authorizationHeader.substring(TOKEN_PREFIX.length());
+            String username = jwtTokenProvider.getSubject(token);
+            if (!jwtTokenProvider.isTokenValid(username, token)
+                    || SecurityContextHolder.getContext().getAuthentication() != null) {
                 return;
             }
 
-            // Bearer ... -> get (...)
-            String token = authorizationHeader.substring(TOKEN_PREFIX.length());
-            String username = jwtTokenProvider.getSubject(token);
-
-            if(jwtTokenProvider.isTokenValid(username, token) &&
-                    SecurityContextHolder.getContext().getAuthentication() == null) {
-                // ROLE_
-                List<GrantedAuthority> authorities = jwtTokenProvider.getAuthorities(token);
-
-                Authentication authentication  = jwtTokenProvider
-                        .getAuthentication(username, authorities, request);
-
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-            } else  {
+            User user = userRepository.findUserByUsername(username);
+            if (user == null || user.getRoles() == null) {
                 SecurityContextHolder.clearContext();
+                return;
             }
+
+            UserPrincipal principal = new UserPrincipal(user);
+            if (!principal.isEnabled() || !principal.isAccountNonLocked()) {
+                SecurityContextHolder.clearContext();
+                return;
+            }
+
+            List<GrantedAuthority> authorities = new ArrayList<>(principal.getAuthorities());
+            SecurityContextHolder.getContext().setAuthentication(
+                    jwtTokenProvider.getAuthentication(username, authorities, request));
+        } catch (JWTVerificationException ex) {
+            SecurityContextHolder.clearContext();
         }
-        filterChain.doFilter(request, response);
     }
 }

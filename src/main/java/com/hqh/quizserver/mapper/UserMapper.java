@@ -4,20 +4,25 @@ import com.hqh.quizserver.dto.UserDTO;
 import com.hqh.quizserver.entity.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.factory.Mappers;
+import org.mapstruct.MappingConstants;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
 public interface UserMapper {
 
-    UserMapper INSTANCE = Mappers.getMapper(UserMapper.class);
-
-    @Mapping(target = "id", expression = "java(user.getId())")
-    @Mapping(target = "firstName", expression = "java(user.getFirstName())")
-    @Mapping(target = "lastName", expression = "java(user.getLastName())")
-    @Mapping(target = "username", expression = "java(user.getUsername())")
-    @Mapping(target = "email", expression = "java(user.getEmail())")
-    @Mapping(target = "phoneNumber", expression = "java(user.getPhoneNumber())")
-    @Mapping(target = "dateOfBirth", expression = "java(user.getDateOfBirth())")
-    UserDTO userMapToUserDTO(User user);
+    @Mapping(target = "id", source = "id")
+    @Mapping(target = "firstName", source = "firstName")
+    @Mapping(target = "lastName", source = "lastName")
+    @Mapping(target = "username", source = "username")
+    @Mapping(target = "email", source = "email")
+    @Mapping(target = "phoneNumber", source = "phoneNumber")
+    @Mapping(target = "dateOfBirth", source = "dateOfBirth")
+    @Mapping(target = "profileImageUrl", source = "profileImageUrl")
+    @Mapping(target = "lastLogin", source = "lastLogin")
+    @Mapping(target = "joinDate", source = "joinDate")
+    @Mapping(target = "roles", source = "roles")
+    @Mapping(target = "active",ignore = true)
+    @Mapping(target = "nonLocked", ignore = true)
+    @Mapping(target = "password", ignore = true)
+    UserDTO toUserResponseDto(User user);
 
 }

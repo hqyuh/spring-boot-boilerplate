@@ -1,19 +1,18 @@
 package com.hqh.quizserver.services;
 
 import com.hqh.quizserver.dto.UserDTO;
+import com.hqh.quizserver.dto.UserRegisterRequestDTO;
+import com.hqh.quizserver.dto.UserRequestDTO;
 import com.hqh.quizserver.entity.User;
-import com.hqh.quizserver.entity.UserStatistics;
-import com.hqh.quizserver.exceptions.domain.user.*;
-import org.springframework.web.multipart.MultipartFile;
+import com.hqh.quizserver.exceptions.domain.user.UserNotFoundException;
+import com.hqh.quizserver.exceptions.domain.user.UsernameOrEmailExistException;
 
-import javax.mail.MessagingException;
-import java.io.IOException;
 import java.util.List;
 
 public interface UserService {
 
-    User register(String firstName, String lastName, String username, String email, String role, String password)
-            throws UserNotFoundException, EmailExistException, UsernameExistException;
+    UserDTO register(UserRegisterRequestDTO request)
+            throws UserNotFoundException, UsernameOrEmailExistException;
 
     List<UserDTO> getUsers();
 
@@ -21,29 +20,16 @@ public interface UserService {
 
     User findUserByEmail(String email);
 
-    void resetPassword(String email) throws EmailNotFoundException, MessagingException;
+    UserDTO addNewUser(UserRequestDTO request)
+            throws UserNotFoundException, UsernameOrEmailExistException;
 
-    User addNewUser(String firstName, String lastName, String username, String email, String role,
-                    boolean isNonLocked, boolean isActive, MultipartFile profileImage)
-            throws UserNotFoundException, EmailExistException, UsernameExistException, IOException, NotAnImageFileException, MessagingException;
+    UserDTO updateUser(UserRequestDTO request)
+            throws UserNotFoundException, UsernameOrEmailExistException;
 
-    User updateUser(String currentUsername, String newFirstName, String newLastName, String newUsername,
-                    String newEmail, String role, boolean isNonLocked, boolean isActive, MultipartFile profileImage)
-            throws UserNotFoundException, EmailExistException, UsernameExistException, IOException, NotAnImageFileException;
+    void deleteUser(Long id) throws UserNotFoundException;
 
-    void deleteUser(Long id);
-
-    User updateProfileImage(String username, MultipartFile profileImage)
-            throws UserNotFoundException, EmailExistException, UsernameExistException, IOException, NotAnImageFileException;
-
-    User findUserById(Long id);
-
-    void changePassword(String email, String oldPassword, String newPassword) throws PasswordException;
-
-    void accountLock(Long id, boolean isNotLocked);
+    UserDTO findUserById(Long id) throws UserNotFoundException;
 
     User getCurrentUser();
-
-    UserStatistics userStatistics();
 
 }

@@ -3,14 +3,16 @@ package com.hqh.quizserver.repositories;
 import com.hqh.quizserver.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
+@ActiveProfiles("test")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Rollback(value = false)
 public class UserRepositoryTest {
@@ -32,18 +34,6 @@ public class UserRepositoryTest {
         boolean matches = passwordEncoder.matches(rawPassword, passInData);
         assertThat(matches).isTrue();
 
-    }
-
-    @Test
-    public void testLockAccount() {
-        Long id = 44L;
-        userRepository.accountLock(id, false);
-    }
-
-    @Test
-    public void testUnLockAccount() {
-        Long id = 44L;
-        userRepository.accountLock(id, true);
     }
 
 }

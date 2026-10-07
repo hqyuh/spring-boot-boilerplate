@@ -2,8 +2,6 @@ package com.hqh.quizserver.utility;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
-import com.auth0.jwt.algorithms.Algorithm;
-import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.hqh.quizserver.entity.UserPrincipal;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,7 +12,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -46,7 +44,7 @@ public class JWTTokenProvider {
                   // permission
                   .withArrayClaim(AUTHORITIES, claims)
                   .withExpiresAt(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
-                  .sign(HMAC512(secret.getBytes()));
+                  .sign(HMAC512(secret));
     }
 
     /**
@@ -91,18 +89,10 @@ public class JWTTokenProvider {
      * -> This function is used to check jwt is valid or not
     * */
     private JWTVerifier getJWTVerifier() {
-        JWTVerifier verifier;
-
-        try {
-            Algorithm algorithm = HMAC512(secret);
-            verifier = JWT.require(algorithm)
-                          .withIssuer(GET_ARRAYS)
-                          .build();
-        } catch (JWTVerificationException ex) {
-            throw new JWTVerificationException(TOKEN_CANNOT_BE_VERIFIED);
-        }
-
-        return verifier;
+        return JWT.require(HMAC512(secret))
+                  .withIssuer(GET_ARRAYS)
+                  .withAudience(GET_ARRAYS_ADMINISTRATION)
+                  .build();
     }
 
     /**
