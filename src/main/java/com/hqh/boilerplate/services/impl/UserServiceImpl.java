@@ -26,6 +26,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import jakarta.transaction.Transactional;
+
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -132,8 +134,8 @@ public class UserServiceImpl implements UserDetailsService, UserService {
         user.setRoles(getRoleEnumName(role).name());
         user.setAuthorities(getRoleEnumName(role).getAuthorities());
         user.setProfileImageUrl(getTemporaryProfileImageUrl(username));
-        user.setCreatedAt(new Date());
-        user.setUpdatedAt(new Date());
+        user.setCreatedAt(LocalDateTime.now());
+        user.setUpdatedAt(LocalDateTime.now());
     }
 
     private String encodePassword(String password) {
@@ -221,7 +223,7 @@ public class UserServiceImpl implements UserDetailsService, UserService {
      * @return password
      */
     private String generatePassword() {
-        return RandomStringUtils.randomAlphanumeric(8);
+        return RandomStringUtils.secure().nextAlphanumeric(8);
     }
 
     private Role getRoleEnumName(String role) {

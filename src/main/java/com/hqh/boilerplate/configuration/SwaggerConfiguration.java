@@ -35,6 +35,7 @@ public class SwaggerConfiguration {
                                 .bearerFormat("JWT")));
     }
 
+    @SuppressWarnings("unchecked")
     @Bean
     public OpenApiCustomizer simpleExamples() {
         Map<String, Object> examples = Map.of(

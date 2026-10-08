@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.concurrent.ExecutionException;
 
-import static java.util.concurrent.TimeUnit.MINUTES;
+import java.time.Duration;
 
 @Service
 public class LoginAttemptService {
@@ -24,7 +24,7 @@ public class LoginAttemptService {
         loginAttemptCache = CacheBuilder
                 .newBuilder()
                 // it will expire/delete after TIME minutes of caching
-                .expireAfterWrite(TIME, MINUTES)
+                .expireAfterWrite(Duration.ofMinutes(TIME))
                 // number of items in cache
                 .maximumSize(100)
                 .build(new CacheLoader<String, Integer>() {

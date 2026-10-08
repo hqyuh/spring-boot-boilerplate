@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import jakarta.persistence.*;
-import java.io.Serializable;
 import java.sql.Timestamp;
 import java.util.Date;
 
@@ -19,7 +18,7 @@ import java.util.Date;
 @Setter
 @Table(name = "users")
 @Entity
-public class User extends BaseEntity implements Serializable {
+public class User extends BaseEntity {
     private static final long serialVersionUID = 1L;
 
     @Id
