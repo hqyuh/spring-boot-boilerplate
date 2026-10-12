@@ -1,0 +1,8 @@
+.gradle
+build
+logs
+.git
+.idea
+*.iml
+.vscode
+.DS_Store

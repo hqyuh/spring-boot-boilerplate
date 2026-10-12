@@ -7,8 +7,11 @@ Auth and user management API. Register, login, and admin user CRUD.
 ## Tech
 
 - [Spring Boot] 4.1.1
-- [Java] 21
+- [Java] 25
+- [Gradle] 9.8.1
 - [PostgreSQL]
+- [Flyway]
+- [MyBatis] (with JPA)
 - [Java-JWT]
 - [MapStruct]
 - [springdoc] OpenAPI
@@ -21,47 +24,57 @@ git clone https://github.com/hqyuh/spring-boot-boilerplate
 
 ## Build
 
-Needs JDK 21.
+Needs JDK 25.
 
 ```sh
-mvn clean package -DskipTests
+./gradlew clean bootJar -x test
 ```
 
-The jar is `target/boilerplate-0.0.1-SNAPSHOT.jar`. Main class is `com.hqh.boilerplate.BoilerplateApplication`.
+The jar is `build/libs/boilerplate-0.0.1-SNAPSHOT.jar`. Main class is `com.hqh.boilerplate.BoilerplateApplication`.
 
 ## Run
 
-PostgreSQL must be running, and the database `quiz` must already exist. Each profile file has its own connection settings (`jdbc:postgresql://localhost:5432/quiz`, user `postgres`).
+PostgreSQL must be running, and the database `quiz` must already exist (`postgres` / `123456`). Start just the database:
 
-| Profile | File | Port |
-| ------- | ---- | ---- |
-| `dev` | `src/main/resources/application-dev.yml` | 8081 |
-| `prod` | `src/main/resources/application-prod.yml` | 9090 |
+```sh
+docker compose up postgres -d
+```
+
+Full stack (app + Postgres, profile `prod`, port `9090`):
+
+```sh
+docker compose up --build
+```
+
+Local `./gradlew bootRun` writes logs to `./logs`. Docker writes to `/app/logs` in the container.
+
+Each profile file has its own connection settings (`jdbc:postgresql://localhost:5432/quiz`, user `postgres`).
+
+| Profile | File                                      | Port |
+| ------- | ----------------------------------------- | ---- |
+| `dev`   | `src/main/resources/application-dev.yml`  | 8081 |
+| `prod`  | `src/main/resources/application-prod.yml` | 9090 |
 
 Both files are packaged into the jar. Choose one with the active profile. There is no `application.yml`, so a start without a profile does not load the datasource or the port.
 
-Dev, from source:
+Dev, from source: **Run and Debug → Boilerplate (dev)** (F5). Save Java/XML → compile → DevTools restart.
+
+Or:
 
 ```sh
-mvn spring-boot:run -Dspring-boot.run.profiles=dev
-```
-
-On PowerShell, quote that property:
-
-```powershell
-mvn spring-boot:run "-Dspring-boot.run.profiles=dev"
+./gradlew bootRun --args='--spring.profiles.active=dev'
 ```
 
 After the build above, prod from the jar:
 
 ```sh
-java -jar target/boilerplate-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
+java -jar build/libs/boilerplate-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
 ```
 
 The same jar with dev:
 
 ```sh
-java -jar target/boilerplate-0.0.1-SNAPSHOT.jar --spring.profiles.active=dev
+java -jar build/libs/boilerplate-0.0.1-SNAPSHOT.jar --spring.profiles.active=dev
 ```
 
 The startup log names the profile, for example `The following 1 profile is active: "dev"`. `No active profile set` means neither file was loaded.
@@ -70,26 +83,22 @@ Dev base URL: `http://localhost:8081/api/v1`
 
 Dev Swagger: `http://localhost:8081/api/v1/swagger-ui.html`
 
-Prod uses port `9090` with the same paths.
+Prod (Docker or jar) uses port `9090` with the same paths: `http://localhost:9090/api/v1/swagger-ui.html`.
 
 Tests use H2 (`src/test/resources/application-test.yml`):
 
 ```sh
-mvn test
+./gradlew test
 ```
-
-
 
 ## Auth
 
 Public:
 
-
 | Method | Path             |
 | ------ | ---------------- |
 | POST   | `/auth/register` |
 | POST   | `/auth/login`    |
-
 
 Register body:
 
@@ -112,7 +121,6 @@ Login body is `email` and `password`. The response has `tokenType`, `accessToken
 
 All of these need `ROLE_ADMIN`.
 
-
 | Method | Path                | Notes                               |
 | ------ | ------------------- | ----------------------------------- |
 | POST   | `/user/add`         | Returns the generated password once |
@@ -120,7 +128,6 @@ All of these need `ROLE_ADMIN`.
 | GET    | `/user/find/{id}`   | 400 if the id does not exist        |
 | POST   | `/user/update`      | Body includes `currentUsername`     |
 | DELETE | `/user/delete/{id}` | 400 if the id does not exist        |
-
 
 Add and update body:
 

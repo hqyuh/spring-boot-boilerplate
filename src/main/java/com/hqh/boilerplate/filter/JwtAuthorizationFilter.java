@@ -4,7 +4,7 @@ import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.hqh.boilerplate.entity.User;
 import com.hqh.boilerplate.entity.UserPrincipal;
 import com.hqh.boilerplate.repository.UserRepository;
-import com.hqh.boilerplate.utility.JWTTokenProvider;
+import com.hqh.boilerplate.utils.JWTTokenProvider;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;

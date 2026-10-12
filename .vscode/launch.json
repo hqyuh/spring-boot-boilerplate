@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Boilerplate (dev)",
+      "request": "launch",
+      "mainClass": "com.hqh.boilerplate.BoilerplateApplication",
+      "projectName": "boilerplate",
+      "args": "--spring.profiles.active=dev",
+      "env": {
+        "SPRING_PROFILES_ACTIVE": "dev"
+      }
+    }
+  ]
+}

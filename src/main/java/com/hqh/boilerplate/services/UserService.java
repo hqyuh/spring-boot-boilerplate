@@ -14,7 +14,7 @@ public interface UserService {
     UserDTO register(UserRegisterRequestDTO request)
             throws UserNotFoundException, UsernameOrEmailExistException;
 
-    List<UserDTO> getUsers();
+    List<UserDTO> getUsers(String keyword, String role, Boolean active);
 
     User findUserByUsername(String username);
 

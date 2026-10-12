@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hqh.boilerplate.mybatis.UserQueryMapper">
+
+    <resultMap id="userMap" type="User">
+        <id column="id" property="id"/>
+        <result column="first_name" property="firstName"/>
+        <result column="last_name" property="lastName"/>
+        <result column="username" property="username"/>
+        <result column="email" property="email"/>
+        <result column="phone_number" property="phoneNumber"/>
+        <result column="date_of_birth" property="dateOfBirth"/>
+        <result column="profile_image_url" property="profileImageUrl"/>
+        <result column="last_login" property="lastLogin"/>
+        <result column="join_date" property="joinDate"/>
+        <result column="roles" property="roles"/>
+        <result column="auth_type" property="authType"/>
+        <result column="is_active" property="active"/>
+        <result column="is_not_locked" property="notLocked"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+        <result column="created_by" property="createdBy"/>
+        <result column="updated_by" property="updatedBy"/>
+    </resultMap>
+
+    <sql id="userColumns">
+        u.id,
+        u.first_name,
+        u.last_name,
+        u.username,
+        u.email,
+        u.phone_number,
+        u.date_of_birth,
+        u.profile_image_url,
+        u.last_login,
+        u.join_date,
+        u.roles,
+        u.auth_type,
+        u.is_active,
+        u.is_not_locked,
+        u.created_at,
+        u.updated_at,
+        u.created_by,
+        u.updated_by
+    </sql>
+
+    <select id="search" resultMap="userMap">
+        SELECT
+        <include refid="userColumns"/>
+        FROM users u
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    LOWER(u.username) LIKE LOWER(CONCAT('%', #{keyword}, '%'))
+                    OR LOWER(u.email) LIKE LOWER(CONCAT('%', #{keyword}, '%'))
+                    OR LOWER(u.first_name || ' ' || COALESCE(u.last_name, ''))
+                        LIKE LOWER(CONCAT('%', #{keyword}, '%'))
+                )
+            </if>
+            <if test="role != null and role != ''">
+                AND u.roles = #{role}
+            </if>
+            <if test="active != null">
+                AND u.is_active = #{active}
+            </if>
+        </where>
+        ORDER BY
+            CASE WHEN u.last_login IS NULL THEN 1 ELSE 0 END,
+            u.last_login DESC,
+            u.created_at DESC,
+            u.id DESC
+    </select>
+
+</mapper>

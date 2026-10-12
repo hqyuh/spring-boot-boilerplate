@@ -9,6 +9,7 @@ import com.hqh.boilerplate.enumeration.Role;
 import com.hqh.boilerplate.exceptions.domain.user.UserNotFoundException;
 import com.hqh.boilerplate.exceptions.domain.user.UsernameOrEmailExistException;
 import com.hqh.boilerplate.mapper.UserMapper;
+import com.hqh.boilerplate.mybatis.UserQueryMapper;
 import com.hqh.boilerplate.repository.UserRepository;
 import com.hqh.boilerplate.services.LoginAttemptService;
 import com.hqh.boilerplate.services.UserService;
@@ -41,16 +42,19 @@ public class UserServiceImpl implements UserDetailsService, UserService {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final UserRepository userRepository;
+    private final UserQueryMapper userQueryMapper;
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
     private final LoginAttemptService loginAttemptService;
     private final UserMapper userMapper;
 
     @Autowired
     public UserServiceImpl(UserRepository userRepository,
+                           UserQueryMapper userQueryMapper,
                            BCryptPasswordEncoder bCryptPasswordEncoder,
                            LoginAttemptService loginAttemptService,
                            UserMapper userMapper) {
         this.userRepository = userRepository;
+        this.userQueryMapper = userQueryMapper;
         this.bCryptPasswordEncoder = bCryptPasswordEncoder;
         this.loginAttemptService = loginAttemptService;
         this.userMapper = userMapper;
@@ -199,9 +203,8 @@ public class UserServiceImpl implements UserDetailsService, UserService {
     }
 
     @Override
-    public List<UserDTO> getUsers() {
-        return userRepository
-                .findAll()
+    public List<UserDTO> getUsers(String keyword, String role, Boolean active) {
+        return userQueryMapper.search(keyword, role, active)
                 .stream()
                 .map(userMapper::toUserResponseDto)
                 .collect(Collectors.toList());

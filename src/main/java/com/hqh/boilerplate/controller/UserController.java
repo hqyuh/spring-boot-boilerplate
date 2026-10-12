@@ -41,8 +41,10 @@ public class UserController {
 
     @GetMapping("/list")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public ResponseEntity<List<UserDTO>> getAllUsers() {
-        return new ResponseEntity<>(userService.getUsers(), OK);
+    public ResponseEntity<List<UserDTO>> getAllUsers(@RequestParam(required = false) String q,
+                                                     @RequestParam(required = false) String role,
+                                                     @RequestParam(required = false) Boolean active) {
+        return new ResponseEntity<>(userService.getUsers(q, role, active), OK);
     }
 
     @GetMapping("/find/{id}")

@@ -92,6 +92,15 @@ class UserApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.username == 'newuser')]").exists());
 
+        mockMvc.perform(get("/user/list")
+                        .param("q", "newuser")
+                        .param("role", "ROLE_USER")
+                        .param("active", "true")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].username").value("newuser"))
+                .andExpect(jsonPath("$.length()").value(1));
+
         mockMvc.perform(get("/user/find/" + id).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.password").doesNotExist());

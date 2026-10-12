@@ -6,7 +6,7 @@ import com.hqh.boilerplate.entity.User;
 import com.hqh.boilerplate.entity.UserPrincipal;
 import com.hqh.boilerplate.services.AuthService;
 import com.hqh.boilerplate.services.UserService;
-import com.hqh.boilerplate.utility.JWTTokenProvider;
+import com.hqh.boilerplate.utils.JWTTokenProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
